@@ -4,7 +4,7 @@ var terrace = require('../'),
 var styles = crel('style');
 styles.innerHTML = [
     'footer{position:fixed;bottom:0;left:0;right:0;height:30px; background:rgba(0,0,0,0.5);border:solid 1px red;}',
-    'nav{position:fixed;bottom:0;top:0;right:0;width:30px; background:rgba(0,0,0,0.5);border:solid 1px red;}',
+    'nav{display: none; position:fixed;bottom:0;top:0;right:0;width:30px; background:rgba(0,0,0,0.5);border:solid 1px red;}',
     'button{position:fixed;bottom:10px;right:10px;height:50px;width:50px;}'
 ].join('');
 

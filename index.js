@@ -5,6 +5,16 @@ var laidout = require('laidout'),
 
 var layers;
 
+function getPosition(element){
+    var rect = element.getBoundingClientRect();
+    return {
+        top: rect.top,
+        left: rect.left,
+        bottom: window.innerHeight - rect.bottom,
+        right: window.innerWidth - rect.right
+    };
+}
+
 function updateLayer(layer, previousLayerBounds){
     var bounds = layer.bounds;
 
@@ -18,45 +28,56 @@ function updateLayer(layer, previousLayerBounds){
     bounds.right = previousLayerBounds.right;
 
     layer.elements.forEach(function(element, index){
-        if(!document.contains(element)){
+        var settings = layer.settings[index];
+        if(!document.contains(element) || window.getComputedStyle(element).display === 'none'){
+            settings.hidden = true;
             return;
         }
 
-        var settings = layer.settings[index],
-            currentRect = element.getBoundingClientRect(),
+        if(settings.hidden){
+            element.style.top = null;
+            element.style.bottom = null;
+            element.style.left = null;
+            element.style.right = null;
+            settings.position = getPosition(element);
+        }
+
+        settings.hidden = false;
+
+        var currentRect = element.getBoundingClientRect(),
             top = settings.position.top + previousLayerBounds.top,
             bottom = previousLayerBounds.bottom + settings.position.bottom,
             left = settings.position.left + previousLayerBounds.left,
             right = previousLayerBounds.right + settings.position.right;
 
-        if(~settings.attach.indexOf('top')){
-            element.style.top = unitr(top);
-        }
-        if(~settings.attach.indexOf('bottom')){
-            element.style.bottom = unitr(bottom);
-        }
-        if(~settings.attach.indexOf('left')){
-            element.style.left = unitr(left);
-        }
-        if(~settings.attach.indexOf('right')){
-            element.style.right = unitr(right);
-        }
-
-        if(!settings.displace){
-            return;
+        if(settings.attach){
+            if(~settings.attach.indexOf('top')){
+                element.style.top = unitr(top);
+            }
+            if(~settings.attach.indexOf('bottom')){
+                element.style.bottom = unitr(bottom);
+            }
+            if(~settings.attach.indexOf('left')){
+                element.style.left = unitr(left);
+            }
+            if(~settings.attach.indexOf('right')){
+                element.style.right = unitr(right);
+            }
         }
 
-        if(~settings.displace.indexOf('below')){
-            bounds.top = Math.max(bounds.top, top + currentRect.height);
-        }
-        if(~settings.displace.indexOf('above')){
-            bounds.bottom = Math.max(bounds.bottom, bottom + currentRect.height);
-        }
-        if(~settings.displace.indexOf('right')){
-            bounds.left = Math.max(bounds.left, left + currentRect.width);
-        }
-        if(~settings.displace.indexOf('left')){
-            bounds.right = Math.max(bounds.right, right + currentRect.width);
+        if(settings.displace){
+            if(~settings.displace.indexOf('below')){
+                bounds.top = Math.max(bounds.top, top + currentRect.height);
+            }
+            if(~settings.displace.indexOf('above')){
+                bounds.bottom = Math.max(bounds.bottom, bottom + currentRect.height);
+            }
+            if(~settings.displace.indexOf('right')){
+                bounds.left = Math.max(bounds.left, left + currentRect.width);
+            }
+            if(~settings.displace.indexOf('left')){
+                bounds.right = Math.max(bounds.right, right + currentRect.width);
+            }
         }
 
     });
@@ -71,10 +92,12 @@ function update(){
         right: 0
     };
 
-    for(var key in layers){
+    var keys = Object.keys(layers).sort();
+
+    keys.forEach(function(key){
         updateLayer(layers[key], lastLayerBounds);
         lastLayerBounds = layers[key].bounds;
-    }
+    });
 
     requestAnimationFrame(update);
 }
@@ -140,15 +163,7 @@ function terrace(element, layerIndex, settings){
 
     if(!settings.position){
         laidout(element, function(){
-            var rect = element.getBoundingClientRect();
-            settings.position = {
-                top: rect.top,
-                left: rect.left,
-                bottom: window.innerHeight - rect.bottom,
-                right: window.innerWidth - rect.right, 
-                width: rect.width,
-                height: rect.height
-            };
+            settings.position = getPosition(element);
         });
     }
 
