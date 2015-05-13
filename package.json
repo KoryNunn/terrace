@@ -1,0 +1,20 @@
+{
+  "name": "terrace",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watchexample": "watchify ./example -o ./example/index.browser.js"
+  },
+  "author": "Kory Nunn <knunn187@gmail.com>",
+  "license": "ISC",
+  "devDependencies": {
+    "crel": "^2.1.8"
+  },
+  "dependencies": {
+    "css-translate": "^1.0.0",
+    "unitr": "^1.1.0",
+    "venfix": "^1.2.0"
+  }
+}
