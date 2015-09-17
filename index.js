@@ -1,6 +1,4 @@
 var laidout = require('laidout'),
-    venfix  =require('venfix'),
-    translate = require('css-translate'),
     unitr = require('unitr');
 
 var layers;
@@ -31,14 +29,14 @@ function updateLayer(layer, previousLayerBounds){
         var settings = layer.settings[index];
         if(!document.contains(element) || window.getComputedStyle(element).display === 'none'){
             settings.hidden = true;
-            return;
-        }
-
-        if(settings.hidden){
             element.style.top = null;
             element.style.bottom = null;
             element.style.left = null;
             element.style.right = null;
+            return;
+        }
+
+        if(settings.hidden){
             settings.position = getPosition(element);
         }
 
@@ -110,27 +108,6 @@ function setup(){
     layers = {};
 
     update();
-}
-
-function buildAttachment(attachments){
-    attachments = attachments.split(' ');
-
-    var attachment = {};
-
-    if(~attachments.indexOf('top')){
-        attachment.top = null;
-    }
-    if(~attachments.indexOf('right')){
-        attachment.right = null;
-    }
-    if(~attachments.indexOf('bottom')){
-        attachment.bottom = null;
-    }
-    if(~attachments.indexOf('left')){
-        attachment.left = null;
-    }
-
-    return attachment;
 }
 
 function terrace(element, layerIndex, settings){
