@@ -1,16 +1,23 @@
-var laidout = require('laidout'),
-    unitr = require('unitr');
+var unitr = require('unitr'),
+    positioned = require('positioned'),
+    outerDimensions = require('outer-dimensions');
 
 var layers;
 
-function getPosition(element){
-    var rect = element.getBoundingClientRect();
+function getPosition(rect){
     return {
         top: rect.top,
         left: rect.left,
         bottom: window.innerHeight - rect.bottom,
         right: window.innerWidth - rect.right
     };
+}
+
+
+function scheduleGetPosition(element, callback){
+    positioned(element, function setPosition(){
+        callback(getPosition(element.getBoundingClientRect()));
+    });
 }
 
 function updateLayer(layer, previousLayerBounds){
@@ -27,7 +34,8 @@ function updateLayer(layer, previousLayerBounds){
 
     layer.elements.forEach(function(element, index){
         var settings = layer.settings[index];
-        if(!document.contains(element) || window.getComputedStyle(element).display === 'none'){
+
+        if(!document.contains(element)){
             settings.hidden = true;
             element.style.top = null;
             element.style.bottom = null;
@@ -36,14 +44,18 @@ function updateLayer(layer, previousLayerBounds){
             return;
         }
 
-        if(settings.hidden){
-            settings.position = getPosition(element);
+        if(settings.autoPosition && settings.hidden && !settings.gettingPosition){
+            settings.gettingPosition = true;
+            scheduleGetPosition(element, function(position){
+                settings.position = position;
+                settings.hidden = false;
+            });
+            return;
         }
 
         settings.hidden = false;
 
-        var currentRect = element.getBoundingClientRect(),
-            top = settings.position.top + previousLayerBounds.top,
+        var top = settings.position.top + previousLayerBounds.top,
             bottom = previousLayerBounds.bottom + settings.position.bottom,
             left = settings.position.left + previousLayerBounds.left,
             right = previousLayerBounds.right + settings.position.right;
@@ -64,17 +76,19 @@ function updateLayer(layer, previousLayerBounds){
         }
 
         if(settings.displace){
+            var dimensions = outerDimensions(element);
+
             if(~settings.displace.indexOf('below')){
-                bounds.top = Math.max(bounds.top, top + currentRect.height);
+                bounds.top = Math.max(bounds.top, top + dimensions.height);
             }
             if(~settings.displace.indexOf('above')){
-                bounds.bottom = Math.max(bounds.bottom, bottom + currentRect.height);
+                bounds.bottom = Math.max(bounds.bottom, bottom + dimensions.height);
             }
             if(~settings.displace.indexOf('right')){
-                bounds.left = Math.max(bounds.left, left + currentRect.width);
+                bounds.left = Math.max(bounds.left, left + dimensions.width);
             }
             if(~settings.displace.indexOf('left')){
-                bounds.right = Math.max(bounds.right, right + currentRect.width);
+                bounds.right = Math.max(bounds.right, right + dimensions.width);
             }
         }
 
@@ -121,6 +135,14 @@ function terrace(element, layerIndex, settings){
 
     layer = layers[layerIndex];
 
+    settings.hidden = true;
+    settings.position = {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0
+    };
+
     if(!layers[layer]){
         layer = layers[layerIndex] = {
             elements: [],
@@ -128,7 +150,7 @@ function terrace(element, layerIndex, settings){
         };
     }
 
-    var layerIndex = layer.elements.indexOf(element);
+    layerIndex = layer.elements.indexOf(element);
 
     if(~layerIndex){
         layer.settings[layerIndex] = settings;
@@ -136,12 +158,6 @@ function terrace(element, layerIndex, settings){
     }else{
         layer.elements.push(element);
         layer.settings.push(settings);
-    }
-
-    if(!settings.position){
-        laidout(element, function(){
-            settings.position = getPosition(element);
-        });
     }
 
     return {

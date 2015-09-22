@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "css-translate": "^1.0.0",
-    "laidout": "^1.0.0",
+    "outer-dimensions": "^1.0.0",
+    "positioned": "^1.0.0",
     "unitr": "^1.1.0",
     "venfix": "^1.2.0"
   }
