@@ -8,7 +8,8 @@ var terrace = require('terrace');
 
 var navTerrace = terrace(someElement, layerIndex, {
     attach: ['right', 'bottom'], // what sides of the screen it is attached to
-    displace: ['left'] // in what directions does it displace higher layers
+    displace: ['left'], // in what directions does it displace higher layers
+    retract: ['bottom'] // From what direction should the element reduce in size if it would excape its layer.
 });
 
 ## Position
@@ -16,7 +17,7 @@ var navTerrace = terrace(someElement, layerIndex, {
 Modify the position of a terrace piece after it has been initialised
 
     navTerrace.position({
-        top: 20    
+        top: 20
     });
 
 or

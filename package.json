@@ -10,7 +10,8 @@
   "author": "Kory Nunn <knunn187@gmail.com>",
   "license": "ISC",
   "devDependencies": {
-    "crel": "^2.1.8"
+    "crel": "^2.1.8",
+    "watchify": "^3.9.0"
   },
   "dependencies": {
     "css-translate": "^1.0.0",

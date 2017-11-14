@@ -13,11 +13,18 @@ function getPosition(rect){
     };
 }
 
-
 function scheduleGetPosition(element, callback){
     positioned(element, function setPosition(){
         callback(getPosition(element.getBoundingClientRect()));
     });
+}
+
+function retract(side, element, settings, previousLayerBounds){
+    if(settings.position[side] < previousLayerBounds[side]){
+        element.style[side] = unitr(previousLayerBounds[side]);
+    }else{
+        element.style[side] = null;
+    }
 }
 
 function updateLayer(layer, previousLayerBounds){
@@ -72,6 +79,32 @@ function updateLayer(layer, previousLayerBounds){
             }
             if(~settings.attach.indexOf('right')){
                 element.style.right = unitr(right);
+            }
+        }
+
+        if(settings.retract){
+            var retractTop = ~settings.retract.indexOf('top');
+            var retractBottom = ~settings.retract.indexOf('bottom');
+            var retractLeft = ~settings.retract.indexOf('left');
+            var retractRight = ~settings.retract.indexOf('right');
+
+            retractTop && (element.style.top = null);
+            retractBottom && (element.style.bottom = null);
+            retractLeft && (element.style.left = null);
+            retractRight && (element.style.right = null);
+            settings.position = getPosition(element.getBoundingClientRect());
+
+            if(retractTop){
+                retract('top', element, settings, previousLayerBounds);
+            }
+            if(retractBottom){
+                retract('bottom', element, settings, previousLayerBounds);
+            }
+            if(retractLeft){
+                retract('left', element, settings, previousLayerBounds);
+            }
+            if(retractRight){
+                retract('right', element, settings, previousLayerBounds);
             }
         }
 
@@ -150,10 +183,10 @@ function terrace(element, layerIndex, settings){
         };
     }
 
-    layerIndex = layer.elements.indexOf(element);
+    var elementIndex = layer.elements.indexOf(element);
 
-    if(~layerIndex){
-        layer.settings[layerIndex] = settings;
+    if(~elementIndex){
+        layer.settings[elementIndex] = settings;
         return;
     }else{
         layer.elements.push(element);
@@ -162,9 +195,9 @@ function terrace(element, layerIndex, settings){
 
     return {
         destroy: function(){
-            var layerIndex = layer.elements.indexOf(element);
-            layer.elements.splice(layerIndex, 1);
-            layer.settings.splice(layerIndex, 1);
+            var elementIndex = layer.elements.indexOf(element);
+            layer.elements.splice(elementIndex, 1);
+            layer.settings.splice(elementIndex, 1);
         },
         position: function(position){
             for(var key in position){

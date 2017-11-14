@@ -1,17 +1,36 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"/home/kory/dev/terrace/example":[function(require,module,exports){
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var terrace = require('../'),
     crel = require('crel');
 
 var styles = crel('style');
 styles.innerHTML = [
+    'html{font-size:18px;font-family:Arial;}',
     'footer{position:fixed;bottom:0;left:0;right:0;height:30px; background:rgba(0,0,0,0.5);border:solid 1px red;}',
     'nav{display: none; position:fixed;bottom:0;top:0;right:0;width:30px; background:rgba(0,0,0,0.5);border:solid 1px red;}',
-    'button{position:fixed;bottom:10px;right:10px;height:50px;width:50px;}'
+    'button{position:fixed;bottom:10px;margin-right:10px;margin-bottom:10px;height:50px;width:150px;}',
+    '.menu{position:absolute;top:60%;margin:10px;min-height:100px;min-width:150px;background:green;overflow-y:auto;}',
+    '.menu .item{border: solid 1px black;}'
 ].join('');
 
-var footer = crel('footer'),
-    floatingButton = crel('button'),
-    nav = crel('nav');
+var footer = crel('footer', 'A footer, perchance?'),
+    floatingButton = crel('button', 'Commence!'),
+    nav = crel('nav', 'Navigate laterally'),
+    menu = crel('div', { class: 'menu' },
+        crel('h3', 'Some menu that has items'),
+        Array.apply(null, { length: 10 }).map((item, index) =>
+            crel('div', { class: 'item' }, index)
+        )
+    );
+
+function animate(){
+    footer.style.height = String(Math.sin(Date.now() / 1000) * 100 + 100) + 'px';
+    nav.style.width = String(Math.sin(Date.now() / 3000) * 50 + 50) + 'px';
+    nav.style.display = Math.sin(Date.now() / 1000) > 0 ? 'initial' : 'none';
+    menu.style.top = String(Math.sin(Date.now() / 3000) * 10 + 70) + '%';
+    menu.style.left = String(Math.sin(Date.now() / 3000) * 50 + 40) + '%';
+    requestAnimationFrame(animate);
+}
+animate();
 
 terrace(footer, 0, {
     attach: ['left', 'right', 'bottom'],
@@ -19,40 +38,57 @@ terrace(footer, 0, {
 });
 
 var navTerrace = terrace(nav, 1, {
-    attach: ['right', 'bottom', 'top'], 
+    attach: ['right', 'bottom', 'top'],
     displace: ['left']
 });
 
 terrace(floatingButton, 2, {
-    attach: ['right', 'bottom']
+    attach: ['right', 'bottom'],
+    displace: ['left']
+});
+
+terrace(menu, 3, {
+    autoPosition: true,
+    retract: ['bottom', 'right']
 });
 
 window.addEventListener('load', function(){
     crel(document.body,
         styles,
+        menu,
         floatingButton,
         nav,
         footer
     );
 });
-
-window.navTerrace = navTerrace;
-},{"../":"/home/kory/dev/terrace/index.js","crel":"/home/kory/dev/terrace/node_modules/crel/crel.js"}],"/home/kory/dev/terrace/index.js":[function(require,module,exports){
-var laidout = require('laidout'),
-    venfix  =require('venfix'),
-    translate = require('css-translate'),
-    unitr = require('unitr');
+},{"../":2,"crel":3}],2:[function(require,module,exports){
+var unitr = require('unitr'),
+    positioned = require('positioned'),
+    outerDimensions = require('outer-dimensions');
 
 var layers;
 
-function getPosition(element){
-    var rect = element.getBoundingClientRect();
+function getPosition(rect){
     return {
         top: rect.top,
         left: rect.left,
         bottom: window.innerHeight - rect.bottom,
         right: window.innerWidth - rect.right
     };
+}
+
+function scheduleGetPosition(element, callback){
+    positioned(element, function setPosition(){
+        callback(getPosition(element.getBoundingClientRect()));
+    });
+}
+
+function retract(side, element, settings, previousLayerBounds){
+    if(settings.position[side] < previousLayerBounds[side]){
+        element.style[side] = unitr(previousLayerBounds[side]);
+    }else{
+        element.style[side] = null;
+    }
 }
 
 function updateLayer(layer, previousLayerBounds){
@@ -69,23 +105,28 @@ function updateLayer(layer, previousLayerBounds){
 
     layer.elements.forEach(function(element, index){
         var settings = layer.settings[index];
-        if(!document.contains(element) || window.getComputedStyle(element).display === 'none'){
-            settings.hidden = true;
-            return;
-        }
 
-        if(settings.hidden){
+        if(!document.contains(element)){
+            settings.hidden = true;
             element.style.top = null;
             element.style.bottom = null;
             element.style.left = null;
             element.style.right = null;
-            settings.position = getPosition(element);
+            return;
+        }
+
+        if(settings.autoPosition && settings.hidden && !settings.gettingPosition){
+            settings.gettingPosition = true;
+            scheduleGetPosition(element, function(position){
+                settings.position = position;
+                settings.hidden = false;
+            });
+            return;
         }
 
         settings.hidden = false;
 
-        var currentRect = element.getBoundingClientRect(),
-            top = settings.position.top + previousLayerBounds.top,
+        var top = settings.position.top + previousLayerBounds.top,
             bottom = previousLayerBounds.bottom + settings.position.bottom,
             left = settings.position.left + previousLayerBounds.left,
             right = previousLayerBounds.right + settings.position.right;
@@ -105,18 +146,46 @@ function updateLayer(layer, previousLayerBounds){
             }
         }
 
+        if(settings.retract){
+            var retractTop = ~settings.retract.indexOf('top');
+            var retractBottom = ~settings.retract.indexOf('bottom');
+            var retractLeft = ~settings.retract.indexOf('left');
+            var retractRight = ~settings.retract.indexOf('right');
+
+            retractTop && (element.style.top = null);
+            retractBottom && (element.style.bottom = null);
+            retractLeft && (element.style.left = null);
+            retractRight && (element.style.right = null);
+            settings.position = getPosition(element.getBoundingClientRect());
+
+            if(retractTop){
+                retract('top', element, settings, previousLayerBounds);
+            }
+            if(retractBottom){
+                retract('bottom', element, settings, previousLayerBounds);
+            }
+            if(retractLeft){
+                retract('left', element, settings, previousLayerBounds);
+            }
+            if(retractRight){
+                retract('right', element, settings, previousLayerBounds);
+            }
+        }
+
         if(settings.displace){
+            var dimensions = outerDimensions(element);
+
             if(~settings.displace.indexOf('below')){
-                bounds.top = Math.max(bounds.top, top + currentRect.height);
+                bounds.top = Math.max(bounds.top, top + dimensions.height);
             }
             if(~settings.displace.indexOf('above')){
-                bounds.bottom = Math.max(bounds.bottom, bottom + currentRect.height);
+                bounds.bottom = Math.max(bounds.bottom, bottom + dimensions.height);
             }
             if(~settings.displace.indexOf('right')){
-                bounds.left = Math.max(bounds.left, left + currentRect.width);
+                bounds.left = Math.max(bounds.left, left + dimensions.width);
             }
             if(~settings.displace.indexOf('left')){
-                bounds.right = Math.max(bounds.right, right + currentRect.width);
+                bounds.right = Math.max(bounds.right, right + dimensions.width);
             }
         }
 
@@ -152,27 +221,6 @@ function setup(){
     update();
 }
 
-function buildAttachment(attachments){
-    attachments = attachments.split(' ');
-
-    var attachment = {};
-
-    if(~attachments.indexOf('top')){
-        attachment.top = null;
-    }
-    if(~attachments.indexOf('right')){
-        attachment.right = null;
-    }
-    if(~attachments.indexOf('bottom')){
-        attachment.bottom = null;
-    }
-    if(~attachments.indexOf('left')){
-        attachment.left = null;
-    }
-
-    return attachment;
-}
-
 function terrace(element, layerIndex, settings){
     var layer;
 
@@ -184,6 +232,14 @@ function terrace(element, layerIndex, settings){
 
     layer = layers[layerIndex];
 
+    settings.hidden = true;
+    settings.position = {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0
+    };
+
     if(!layers[layer]){
         layer = layers[layerIndex] = {
             elements: [],
@@ -191,27 +247,21 @@ function terrace(element, layerIndex, settings){
         };
     }
 
-    var layerIndex = layer.elements.indexOf(element);
+    var elementIndex = layer.elements.indexOf(element);
 
-    if(~layerIndex){
-        layer.settings[layerIndex] = settings;
+    if(~elementIndex){
+        layer.settings[elementIndex] = settings;
         return;
     }else{
         layer.elements.push(element);
         layer.settings.push(settings);
     }
 
-    if(!settings.position){
-        laidout(element, function(){
-            settings.position = getPosition(element);
-        });
-    }
-
     return {
         destroy: function(){
-            var layerIndex = layer.elements.indexOf(element);
-            layer.elements.splice(layerIndex, 1);
-            layer.settings.splice(layerIndex, 1);
+            var elementIndex = layer.elements.indexOf(element);
+            layer.elements.splice(elementIndex, 1);
+            layer.settings.splice(elementIndex, 1);
         },
         position: function(position){
             for(var key in position){
@@ -222,7 +272,8 @@ function terrace(element, layerIndex, settings){
 }
 
 module.exports = terrace;
-},{"css-translate":"/home/kory/dev/terrace/node_modules/css-translate/translate.js","laidout":"/usr/lib/node_modules/laidout/index.js","unitr":"/home/kory/dev/terrace/node_modules/unitr/unitr.js","venfix":"/home/kory/dev/terrace/node_modules/venfix/venfix.js"}],"/home/kory/dev/terrace/node_modules/crel/crel.js":[function(require,module,exports){
+
+},{"outer-dimensions":5,"positioned":6,"unitr":7}],3:[function(require,module,exports){
 //Copyright (C) 2012 Kory Nunn
 
 //Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -347,7 +398,11 @@ module.exports = terrace;
 
         for(var key in settings){
             if(!attributeMap[key]){
-                element[setAttribute](key, settings[key]);
+                if(isType(settings[key],fn)){
+                    element[key] = settings[key];
+                }else{
+                    element[setAttribute](key, settings[key]);
+                }
             }else{
                 var attr = attributeMap[key];
                 if(typeof attr === fn){
@@ -368,202 +423,28 @@ module.exports = terrace;
 
     crel[isNodeString] = isNode;
 
+    if(typeof Proxy !== 'undefined'){
+        return new Proxy(crel, {
+            get: function(target, key){
+                !(key in crel) && (crel[key] = crel.bind(null, key));
+                return crel[key];
+            }
+        });
+    }
+
     return crel;
 }));
 
-},{}],"/home/kory/dev/terrace/node_modules/css-translate/node_modules/unitr/unitr.js":[function(require,module,exports){
-var parseRegex = /^(-?(?:\d+|\d+\.\d+|\.\d+))([^\.]*?)$/;
-
-function parse(input){
-    var valueParts = parseRegex.exec(input);
-
-    if(!valueParts){
-        return;
-    }
-
-    return {
-        value: parseFloat(valueParts[1]),
-        unit: valueParts[2]
-    };
-}
-
-function addUnit(input, unit){
-    var parsedInput = parse(input),
-        parsedUnit = parse(unit);
-
-    if(!parsedInput && parsedUnit){
-        unit = input;
-        parsedInput = parsedUnit;
-    }
-
-    if(!isNaN(unit)){
-        unit = null;
-    }
-
-    if(!parsedInput){
-        return input;
-    }
-
-    if(parsedInput.unit == null || parsedInput.unit == ''){
-        parsedInput.unit = unit || 'px';
-    }
-
-    return parsedInput.value + parsedInput.unit;
-};
-
-module.exports = addUnit;
-module.exports.parse = parse;
-},{}],"/home/kory/dev/terrace/node_modules/css-translate/translate.js":[function(require,module,exports){
-var unitr = require('unitr'),
-    types = {
-        '3d': '3d',
-        'x': 'X',
-        'y': 'Y',
-        'z': 'Z',
-        '2d': '',
-        '': ''
-    };
-
-module.exports = function(type, x, y, z){
-    if(!isNaN(type)){
-        z = y;
-        y = x;
-        x = type;
-        type = null;
-    }
-
-    type = type && type.toLowerCase() || '';
-
-    var args = [];
-
-    x != null && args.push(unitr(x));
-    y != null && args.push(unitr(y));
-    z != null && args.push(unitr(z));
-
-    return 'translate' +
-        types[type] +
-        '(' +
-        args.join(',') +
-        ')';
-}
-},{"unitr":"/home/kory/dev/terrace/node_modules/css-translate/node_modules/unitr/unitr.js"}],"/home/kory/dev/terrace/node_modules/unitr/unitr.js":[function(require,module,exports){
-var parseRegex = /^(-?(?:\d+|\d+\.\d+|\.\d+))([^\.]*?)$/;
-
-function parse(input){
-    var valueParts = parseRegex.exec(input);
-
-    if(!valueParts){
-        return;
-    }
-
-    return {
-        value: parseFloat(valueParts[1]),
-        unit: valueParts[2]
-    };
-}
-
-function addUnit(input, unit){
-    var parsedInput = parse(input),
-        parsedUnit = parse(unit);
-
-    if(!parsedInput && parsedUnit){
-        unit = input;
-        parsedInput = parsedUnit;
-    }
-
-    if(!isNaN(unit)){
-        unit = null;
-    }
-
-    if(!parsedInput){
-        return input;
-    }
-
-    if(parsedInput.unit == null || parsedInput.unit == ''){
-        parsedInput.unit = unit || 'px';
-    }
-
-    return parsedInput.value + parsedInput.unit;
-};
-
-module.exports = addUnit;
-module.exports.parse = parse;
-},{}],"/home/kory/dev/terrace/node_modules/venfix/venfix.js":[function(require,module,exports){
-var cache = {},
-    bodyStyle = {};
-
-if(typeof window !== 'undefined'){
-    if(window.document.body){
-        getBodyStyleProperties();
-    }else{
-        window.addEventListener('load', getBodyStyleProperties);
-    }
-}
-
-function getBodyStyleProperties(){
-    var shortcuts = {},
-        items = document.defaultView.getComputedStyle(document.body);
-
-    for(var i = 0; i < items.length; i++){
-        bodyStyle[items[i]] = null;
-
-        // This is kinda dodgy but it works.
-        baseName = items[i].match(/^(\w+)-.*$/);
-        if(baseName){
-            if(shortcuts[baseName[1]]){
-                bodyStyle[baseName[1]] = null;
-            }else{
-                shortcuts[baseName[1]] = true;
-            }
-        }
-    }
-}
-
-function venfix(property, target){
-    if(!target && cache[property]){
-        return cache[property];
-    }
-
-    target = target || bodyStyle;
-
-    var props = [];
-
-    for(var key in target){
-        cache[key] = key;
-        props.push(key);
-    }
-
-    if(property in target){
-        return property;
-    }
-
-    var propertyRegex = new RegExp('^(-(?:' + venfix.prefixes.join('|') + ')-)' + property + '(?:$|-)', 'i');
-
-    for(var i = 0; i < props.length; i++) {
-        var match = props[i].match(propertyRegex);
-        if(match){
-            var result = match[1] + property;
-            if(target === bodyStyle){
-                cache[property] = result
-            }
-            return result;
-        }
-    }
-
-    return property;
-}
-
-// Add extensibility
-venfix.prefixes = ['webkit', 'moz', 'ms', 'o'];
-
-module.exports = venfix;
-},{}],"/usr/lib/node_modules/laidout/index.js":[function(require,module,exports){
-function checkElement(element){
+},{}],4:[function(require,module,exports){
+function checkElement(element, checkDisplay){
     if(!element){
         return false;
     }
-    var parentNode = element.parentNode;
+    var parentNode = element;
     while(parentNode){
+        if(checkDisplay && parentNode.style && parentNode.style.display === 'none'){
+            return false;
+        }
         if(parentNode === element.ownerDocument){
             return true;
         }
@@ -572,18 +453,129 @@ function checkElement(element){
     return false;
 }
 
-module.exports = function laidout(element, callback){
-    if(checkElement(element)){
+module.exports = function laidout(element, checkDisplay, callback){
+    if(arguments.length < 3){
+        callback = checkDisplay;
+        checkDisplay = false;
+    }
+
+    if(checkElement(element, checkDisplay)){
         return callback();
     }
 
     var recheckElement = function(){
-            if(checkElement(element)){
+            if(checkElement(element, checkDisplay)){
                 document.removeEventListener('DOMNodeInserted', recheckElement);
                 callback();
+                return;
+            }
+
+            if(checkDisplay){
+                requestAnimationFrame(recheckElement);
             }
         };
 
+    recheckElement();
     document.addEventListener('DOMNodeInserted', recheckElement);
 };
-},{}]},{},["/home/kory/dev/terrace/example"]);
+},{}],5:[function(require,module,exports){
+module.exports = function outerDimensions(element) {
+    if(!element) {
+        return;
+    }
+
+    var dimensions = {
+            height: element.offsetHeight,
+            width: element.offsetWidth
+        },
+        style = window.getComputedStyle(element);
+
+    dimensions.height += parseInt(style.marginTop) + parseInt(style.marginBottom);
+    dimensions.width += parseInt(style.marginLeft) + parseInt(style.marginRight);
+
+  return dimensions;
+};
+},{}],6:[function(require,module,exports){
+var laidout = require('laidout'),
+    positionChecks = [],
+    running;
+
+function checkPosition(positionCheck, index){
+    var rect = positionCheck.element.getBoundingClientRect();
+
+    if(rect.top || rect.bottom || rect.left || rect.right) {
+        positionChecks.splice(index, 1);
+        positionCheck.callback();
+    }
+}
+
+function run(){
+    running = true;
+
+    positionChecks.forEach(checkPosition);
+
+    if(!positionChecks.length) {
+        running = false;
+
+        return;
+    }
+
+    requestAnimationFrame(run);
+}
+
+module.exports = function hasPosition(element, callback){
+    laidout(element, function(){
+        positionChecks.push({
+            element: element,
+            callback: callback
+        });
+
+        if(!running){
+            run();
+        }
+    });
+};
+
+},{"laidout":4}],7:[function(require,module,exports){
+var parseRegex = /^(-?(?:\d+|\d+\.\d+|\.\d+))([^\.]*?)$/;
+
+function parse(input){
+    var valueParts = parseRegex.exec(input);
+
+    if(!valueParts){
+        return;
+    }
+
+    return {
+        value: parseFloat(valueParts[1]),
+        unit: valueParts[2]
+    };
+}
+
+function addUnit(input, unit){
+    var parsedInput = parse(input),
+        parsedUnit = parse(unit);
+
+    if(!parsedInput && parsedUnit){
+        unit = input;
+        parsedInput = parsedUnit;
+    }
+
+    if(!isNaN(unit)){
+        unit = null;
+    }
+
+    if(!parsedInput){
+        return input;
+    }
+
+    if(parsedInput.unit == null || parsedInput.unit == ''){
+        parsedInput.unit = unit || 'px';
+    }
+
+    return parsedInput.value + parsedInput.unit;
+};
+
+module.exports = addUnit;
+module.exports.parse = parse;
+},{}]},{},[1]);
