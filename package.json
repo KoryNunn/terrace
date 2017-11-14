@@ -1,6 +1,6 @@
 {
   "name": "terrace",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "automatically layout fixed UI elements based on layers.",
   "main": "index.js",
   "scripts": {
